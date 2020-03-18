@@ -2,6 +2,7 @@ package com.example.demo;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.devtools.RemoteSpringApplication;
 /**
  * @SpringBootApplication =@EnableAutoConfiguration + @ComponentScan
  * + @Configuration
@@ -110,6 +111,40 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  *  a) 服务端的后台,这里可以接受连接和客户端应用(在IDE中设置的)
  *  b) 设置完@spring.devtools.remote.secret之后,服务器组件自动启动,
  *  客户端组件必须要手动运行
+ *
+ *  11. 运行远程客户端应用
+ *  远程客户端应用用于在IDE中运行。需要在运行
+ *  @org.springframework.boot.devtools.RemoteSpringApplication 的时候使用一些
+ *  类路径,这些是远程项目需要连接的类路径.这个应用单个需要的参数就是远端URL地址.
+ *  例如,如果使用Eclipse中的项目,例如`my-app`,可以部署到云端.
+ *  可以参考如下配置:
+ *   1. 从运行菜单中选择`Run Configurations`
+ *   2. 创建新的java应用(运行配置)
+ *   3. 浏览`my-app`项目
+ *   4. 使用@org.springframework.boot.devtools.RemoteSpringApplication 作为主类
+ *   5. 添加`https://myapp.cfapps.io`到程序的参数中（就是远端URL地址）
+ *
+ *   12. 远程更新
+ *   远程客户端监视了你的类路径的改变,就如同在本地启动一样.如何更新的资源会被推送到远端应用.且
+ *   触发重启.如果在一个特征上进行迭代(这个特征使用了本地不存在的云服务)这样是很有效的.
+ *   总体来时,远端更新和重启要比全部重新构建和部署要快.
+ *
+ *   13. 配置文件系统监视器
+ *   文件系统监视器通过对类的轮询工作,轮询需要设置轮询的时间周期.且等待预先设置后台执行周期.用于
+ *   保证没有其他的改变.改变会更新到远程应用中.在一个慢速研发环境中,可能发生这样的状况:
+ *   后台周期不足,且类的变化被分成多个批次.服务器在首个批次类的改变之后进行重启,下一个批次这个时候
+ *   不能发送给应用,因为服务器处于重启状态,不能接受这些更新信息.
+ *   这个典型地可以通过@RemoteSpringApplication 中的警告信息提示出来,信息的内容为`加载类失败`
+ *   的日志信息,且会显示重试的次数.
+ *   但是可能会导致应用代码的数据不一致,且在第一批次改变加载之后重启失败的情况.
+ *   如果你发现了一些进程发生的问题,尝试增加@spring.devtools.restart.poll-interval 轮询周期。
+ *   给予足够的重启处理时间。和@spring.devtools.restart.quiet-period 去适配开发环境。
+ *
+ *  14. 生产环境下应用打包
+ *  执行jar包可以用于生成部署,因为是独立的.将其部署在云端也是合适的.
+ *  对于准备生成的特征来说,比如说健壮性`health`,监察`auditing`,REST度量,和JMX后台.考虑到添加
+ * @spring-boot-actuator 可以参考特征配置的文档进行设置。
+ *
  * */
 
 @SpringBootApplication
