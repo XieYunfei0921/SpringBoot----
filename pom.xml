@@ -73,6 +73,15 @@
             <artifactId>spring-boot-autoconfigure</artifactId>
             <version>2.2.4.RELEASE</version>
         </dependency>
+        <!--开发常用的工具包 其中
+        org.springframework.boot.devtools.RemoteSpringApplication 属于这个包
+        常用于远程连接
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <version>2.2.4.RELEASE</version>
+        </dependency>
     </dependencies>
 
     <build>
