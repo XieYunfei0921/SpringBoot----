@@ -35,7 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 * RequestMapping    提供信息路由的功能,任何HTTP请求,"/"都会被发送到`home`方法中
 * EnableAutoConfiguration   允许自动配置注解,告知springBoot 去猜你想要配置spring的属性,依据与你添加的jar依赖
 *   由于spring-boot-starter-web添加了Tomcat和Spring MVC 所以你可以自动配置web应用
-* SpringBootApplication 使用JPA程序时,这个注解用于搜索`@Entity`注解
+* SpringBootApplication 使用JPA程序时,这个注解用于搜索`@entity`注解
 *  下面是注解内部信息
 *  {{{
 *       @AliasFor(
