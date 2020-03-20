@@ -1,6 +1,8 @@
 package com.example.demo.dao;
 
 import com.example.demo.entity.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.querydsl.QSort;
 
 /**
  * 在之前的例子中，定义了一个示例接口，用于所有的domain类。并保留了@findById和@save方法，
@@ -10,4 +12,5 @@ import com.example.demo.entity.User;
  */
 public interface UserRepository2 extends MyBaseRepository<User,Long>{
 	User findByAddress(String addr);
+
 }
