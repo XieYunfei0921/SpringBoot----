@@ -243,3 +243,173 @@ interface UserRepository extends MyBaseRepository<User, Long> {
   ```
   
 4. 定义查询方法
+仓库代理有两种方式原语指定方法名的查询.
+1. 通过方法名称得出查询
+2. 使用手动定义的查询
+依赖于存储设置进行配置,但是必须设置策略,这个策略决定了查询创建的方式.下部分内容描述了
+可选的配置:
++ 查找策略
+下述策略对仓库的基础设置进行查询.通过配置xml,可以配置这个策略的命名空间,通过设置
+`query-lookup-strategy`属性。对于java的配置，可以使用查询策略@queryLookupStrategy
+属性（启动Enable${store}Repositories注解）。一些策略可能不支持指定的数据存储。
++ `CREATE`请求用于构建来自指定方法名称的查询.通用的方式时移除给定方法前缀的集合.并
+转换其余的方法.可与阅读冠以`查询创建`部分的内容.
++ `USE_DECLARED_QUERY`尝试找到声明的查询,且如果没有找到就抛出异常.这个产线可以使用
+注解定义.可以参考指导存储器的相关文档.如果仓库没有找到声明的查询的时候就会失败.
++ `CREATE_IF_NOT_FOUND` 将`CREATE`和`USE_DECLARED_QUERY`联合在一起.首先,查找
+声明的查询,如果没有查找到,则会创建基于指定名称的查询.如果不设置任何配置时,这个是默认
+查找策略.
+
+5. 创建查询
+基于spring data仓库的查询构建器用于构建对于实例的查询.这个原理实验`find...By`,
+`read...By`,`query...By`,`count...By`,`get...By`的方法,且启动转换.这个语法可以
+包含更多的表达式.例如`Distinct`用于设置创建查询的唯一性.
+但是设个动作实验分隔符分割,用于辨识实际的启动位置.可以在实例实现上定义条件,且使用`And`
+或者`Or`进行连接.下面的实例显示了如何使用:
+`由方法名称构建查询`
+```java
+interface PersonRepository extends Repository<Person, Long> {
+
+  List<Person> findByEmailAddressAndLastname(EmailAddress emailAddress, String lastname);
+
+  // Enables the distinct flag for the query
+  List<Person> findDistinctPeopleByLastnameOrFirstname(String lastname, String firstname);
+  List<Person> findPeopleDistinctByLastnameOrFirstname(String lastname, String firstname);
+
+  // Enabling ignoring case for an individual property
+  List<Person> findByLastnameIgnoreCase(String lastname);
+  // Enabling ignoring case for all suitable properties
+  List<Person> findByLastnameAndFirstnameAllIgnoreCase(String lastname, String firstname);
+
+  // Enabling static ORDER BY for a query
+  List<Person> findByLastnameOrderByFirstnameAsc(String lastname);
+  List<Person> findByLastnameOrderByFirstnameDesc(String lastname);
+}
+```
+6. 属性表达书
+**属性表达式** 可以指定管理实例的直接属性. 在查询创建的时间,可以确定转换的属性是不是管理
+的domain类的属性.但是,可以通过遍历属性来定义约束条件.考虑下述方法表达:
+```markdown
+List<Person> findByAddressZipCode(ZipCode zipCode);
+```
+假定`Person`类的`address`属性中包含`zipCode`.在这种情况下,方法创建了属性
+x.address.zipCode属性.处理算法通过转换`AddressZipCode`开始,使其作为属性,且检查
+domain类,找到这个的属性.如果算法执行成功,就会使用其属性.如果没有成功,算法会以驼峰为
+分割点.实例`AddressZipCode`会分割成`AddressZip`和`Code`,如果找到这个属性(与head
+相同),获取结尾(Code)且从这里构建一颗树.将结尾分割.如果head不匹配,算法则会向左移动.
+(Address,ZipCode),且继续.
+经过这个在大多数情况下都能正常工作,当时也有可能算法算错了属性值.假定`Person`类有个
+addressZop属性的话.这个算法会匹配上钩分割匹配结果,这样可能就选错值了.
+为了解决冲突,可以使用`_`分割,指定子属性的嵌套问题,可以如下定义:
+```markdown
+List<Person> findByAddress_ZipCode(ZipCode zipCode);
+```
+
+7. 指定参数的处理
+为了解决查询中的属性问题.仓库的基础设施将指定类型视作可分页`Pageable`,且可排序`Sort`
+.为了可以动态的进行分页和排序,下述示例证明了这些特征.
++ 使用`Pageable`,`Sort`,`Slice`在查询方法中
+```markdown
+Page<User> findByLastname(String lastname, Pageable pageable);
+
+Slice<User> findByLastname(String lastname, Pageable pageable);
+
+List<User> findByLastname(String lastname, Sort sort);
+
+List<User> findByLastname(String lastname, Pageable pageable);
+```
+第一个方法传递@org.springframework.data.domain.Pageable实例给查询方法,且静态地
+将分配添加到指定查询中.一个页面可以得知元素的总是和可以获得的分页数量.通过触发计数查询
+,用于计算所有的数量,也可以使用@slice,一个切片可以知道下一个切片是什么,这个在运行大量
+数据时是高效的.
+排序通过@Pageable实例进行处理,如果仅仅需要排序,将@org.springframework.data.domain.Sort
+添加到你的方法中。可以看到,返回一个列表,在这种情况下,额外需要的元数据去构建实际分配
+@Page实例.相反,它限制了产线指定范围内的实例.
+
+8. 排序和分页
++ 简单排序
+```markdown
+Sort sort = Sort.by("firstname").ascending()
+  .and(Sort.by("lastname").descending());
+```
+
++ 使用类型安全的API定义排序表达式
+```markdown
+TypedSort<Person> person = Sort.sort(Person.class);
+
+TypedSort<Person> sort = person.by(Person::getFirstname).ascending()
+  .and(person.by(Person::getLastname).descending());
+```
++ 使用Querydsl API定义排序表达式
+```markdown
+QSort sort = QSort.by(QPerson.firstname.asc())
+  .and(QSort.by(QPerson.lastname.desc()));
+```
+
+9. 限制查询结果
+使用`Top`,`First`限制查询结果
+```markdown
+User findFirstByOrderByLastnameAsc();
+
+User findTopByOrderByAgeDesc();
+
+Page<User> queryFirst10ByLastname(String lastname, Pageable pageable);
+
+Slice<User> findTop3ByLastname(String lastname, Pageable pageable);
+
+List<User> findFirst10ByLastname(String lastname, Sort sort);
+
+List<User> findTop10ByLastname(String lastname, Pageable pageable);
+```
+
+9. 使用仓库方法返回集合或者迭代器属性
+使用`Streambale`作为查询的返回类型.返回的类型为java的`Iterable`,`List`,`Set`.
+`Streamable`可以用于迭代器或者任何类型的集合类型.提供简便的方法,用于获取非并行流,
+可以使用`...filter(...)`,和`...map(...)`,将`Streambale`连接到其他类型.
++ 使用`Streamable`,用于合并查询方法的结果
+```markdown
+interface PersonRepository extends Repository<Person, Long> {
+  Streamable<Person> findByFirstnameContaining(String firstname);
+  Streamable<Person> findByLastnameContaining(String lastname);
+}
+
+Streamable<Person> result = repository.findByFirstnameContaining("av")
+  .and(repository.findByLastnameContaining("ea"));
+```
+
++ 返回自定义的Streamable包装类型
+示例:
+```java
+class Product {  // 这个类暴露API,用于获取产品的价格@getPrice
+  MonetaryAmount getPrice() { … }
+}
+
+@RequiredArgConstructor(staticName = "of")
+class Products implements Streamable<Product> { 
+  // Streamable<Product>的包装类,可以通过Products.of构建(通过lombok注解创建的工厂方法)
+  	
+
+  private Streamable<Product> streamable;
+  // 额外的API用于计算Streamable<Product>的新值
+  public MonetaryAmount getTotal() { 
+    return streamable.stream() //
+      .map(Priced::getPrice)
+      .reduce(Money.of(0), MonetaryAmount::add);
+  }
+}
+
+interface ProductRepository implements Repository<Product, Long> {
+	// 可以用于查询方法的保证类型,直接返回类型的名称@Products,不需要返回@Stremable<Product> 
+  Products findAllByDescriptionContaining(String text); 
+}
+```
+
+10. 支持vrvr集合
+`vrvr`是一个java中的功能性程序概念.
+|vrvr集合类型|vrvr类型实现|可用的java类型|
+|io.vavr.collection.Seq| io.vavr.collection.List |java.util.Iterable|
+|io.vavr.collection.Set| io.vavr.collection.LinkedHashSet|java.util.Iterable|
+|io.vavr.collection.Map|io.vavr.collection.LinkedHashMap|java.util.Map|
+
+11. 仓库方法空值处理
+
