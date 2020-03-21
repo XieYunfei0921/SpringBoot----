@@ -412,4 +412,290 @@ interface ProductRepository implements Repository<Product, Long> {
 |io.vavr.collection.Map|io.vavr.collection.LinkedHashMap|java.util.Map|
 
 11. 仓库方法空值处理
+在spring data 2.0中,仓库的CRUD的方法会返回使用Java 8 聚合的实例@Optional,用于退出可能缺失
+的值.除此之外,spring data支持查询方法的保证类型:
+这里的@Optional指的是如下类型:
++ `com.google.common.base.Optional`
++ `scala.Option`
++ `io.vavr.control.Option`
+此外,还可以不选择包装类型,使用`null`推测查询结果的缺失.正常情况下,查询方法可以返回集合,
+包装类,以及包装不返回null的流.参考相应的`仓库的返回类型`.
 
+12. 空值注解
+可以在运行时提供空值检查
++ `@NonNullApi`: 使用在包级别上,用于声明参数的默认行为,返回的值不能就收空值,也不能产生空值
++ `@NotNull`: 使用在参数上,返回的值不能是null
++ `@Nullable`: 使用在参数上,可以是空值
+spring注解使用元数据进行注解,使用JSR-305注解. 需要激活包级别的非空设置(在`package-info.java`
+中使用@NonNullApi  注解),开启查询方法的运行时检查和空值约束条件
+
+13. 流式查询结果
+查询结果可以使用java 8 的流式对象@Stream<T>增量式查询.指定存储的查询方法用于在streaming
+上运行,而不是包装查询结果,示例如下:
+```markdown
+@Query("select u from User u")
+Stream<User> findAllByCustomQueryAndStream();
+
+Stream<User> readAllByFirstnameNotNull();
+
+@Query("select u from User u")
+Stream<User> streamAllPaged(Pageable pageable);
+```
+使用try...catch处理@Stream<T>
+```markdown
+try (Stream<User> stream = repository.findAllByCustomQueryAndStream()) {
+  stream.forEach(…);
+}
+```
+> 注意: 不是所有的spring data 模块都支持@Stream<T>作为返回类型
+
+14. 异步查询
+仓库的查询可以异步运行(通过使用Spring异步方法,返回异步指向任务@Future).这个方法在你
+将查询提交到spring的@TaskExecutor上然后立即返回.异步查询的方式不同意同步查询,且不
+可以混合指向(需要控制好读写锁的问题).参照指定的文档,获取同步查找的支持.下面是示例:
+```markdown
+// 使用java.util.concurrent.Future 作为返回类型
+@Async
+Future<User> findByFirstname(String firstname);               
+
+// 使用java8 的@java.util.concurrent.CompletableFuture 作为返回
+@Async
+CompletableFuture<User> findOneByFirstname(String firstname); 
+// 使用spring框架的@org.springframework.util.concurrent.ListenableFuture
+// 作为返回方式
+@Async
+ListenableFuture<User> findOneByLastname(String lastname); 
+```
+
+15. 创建仓库实例
+在这个部分中，可以创建一个实例，并对于指定的仓库接口创建bean的定义。一种方式是使用
+spring的namespace,用于传递每个spring data模块,用于支持仓库,即使如从还是建议使用java配置.
++ xml配置
+通过xml启动xml仓库
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans:beans xmlns:beans="http://www.springframework.org/schema/beans"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://www.springframework.org/schema/data/jpa"
+  xsi:schemaLocation="http://www.springframework.org/schema/beans
+    https://www.springframework.org/schema/beans/spring-beans.xsd
+    http://www.springframework.org/schema/data/jpa
+    https://www.springframework.org/schema/data/jpa/spring-jpa.xsd">
+
+  <repositories base-package="com.acme.repositories" />
+
+</beans:beans>
+```
+
++ 使用过滤器
+ 默认情况下,会捡起基础指定仓库的每个接口.但是,如果需要更细粒度的空值,可以使用
+ `<include-filter />`和<exclude-filter />元素,放在<repositories />中,用于对
+ 指定元素的空值,比如.参考spring 参考文档获取这些元素的设置.
+ 例如,将指定的接口配置为bean,可以参考如下配置:
+ ```xml
+ <repositories base-package="com.acme.repositories">
+  <context:exclude-filter type="regex" expression=".*SomeRepository" />
+ </repositories>
+ ```
+ 
+ + 使用JavaConfig配置
+ 这个仓库可以使用指定的注解触发(@Enable${store}Repositories),使用在一个java配置类上.
+ 对于一个基于spring容器的java配置,可以参考spring 参考文档.
+ ```java
+@Configuration
+@EnableJpaRepositories("com.acme.repositories")
+class ApplicationConfiguration {
+
+  @Bean
+  EntityManagerFactory entityManagerFactory() {
+    // …
+  }
+}
+ ```
+ 
+ 16. 自定义Spring Data Repositories
+ 这个部分覆盖了仓库的自定义配置.
+ + 自定义单个仓库
+ 使用自定义配置丰富仓库,必须先定义一个接口和自定义功能的实现.示例如下:
+ > 自定义仓库功能接口
+ ```java
+ interface CustomizedUserRepository {
+  void someCustomMethod(User user);
+ }
+ ```
+ > 实现自定义仓库
+ ```java
+class CustomizedUserRepositoryImpl implements CustomizedUserRepository {
+
+  public void someCustomMethod(User user) {
+    // 你的实现
+  }
+}
+ ```
+注意: 实现需要添加`Impl`后缀
+这个实现自己是不会依赖于spring data的,且可以是普通的spring bean.从结果上来看,可以使用
+标准依赖注入,用于注入引用到其他bean中(例如JDBCTemplate).然后可以使你的接口自定义的接口.
+```java
+interface UserRepository extends CrudRepository<User, Long>, CustomizedUserRepository {
+
+  // Declare query methods here
+}
+```
+继承自定义接口和@CrudRepository,且暴露给客户端.
+spring data仓库通过自定义接口实现.这个自定义的接口是基础仓库,功能性方法(QueryDsl).
+以及自定义接口和它的实现.每次添加接口到仓库的时候,需要添加片段.基础仓库和仓库方面由spring
+data模块实现.
+使用片段实现:
+```java
+interface HumanRepository {
+  void someHumanMethod(User user);
+}
+
+class HumanRepositoryImpl implements HumanRepository {
+
+  public void someHumanMethod(User user) {
+    // Your custom implementation
+  }
+}
+
+interface ContactRepository {
+
+  void someContactMethod(User user);
+
+  User anotherContactMethod(User user);
+}
+
+class ContactRepositoryImpl implements ContactRepository {
+
+  public void someContactMethod(User user) {
+    // Your custom implementation
+  }
+
+  public User anotherContactMethod(User user) {
+    // Your custom implementation
+  }
+}
+```
+仓库由多个自定义实现组成,这些按照声明顺序导入.客户端实现由较高的优先级(相对于基本实现
+来说).且需要解决两个片段接口的起义.仓库拍脑袋不限于使用在单个仓库接口中.多个仓库使用一个
+片段接口,使得你可以重用通过不同仓库的自定义配置.
+使用片段覆盖`save()`
+```java
+interface CustomizedSave<T> {
+  <S extends T> S save(S entity);
+}
+
+class CustomizedSaveImpl<T> implements CustomizedSave<T> {
+
+  public <S extends T> S save(S entity) {
+    // Your custom implementation
+  }
+}
+```
+
+16. 配置
+如果使用了命名空间配置,这个配置基础设置尝试自动发现片段的自定义实现,主要通过扫描包下的类.
+这个类需要遵守命名构造法(用于添加命名空间的元素的属性到分片接口名称中).这个名称的后缀就是
+`Impl`.下述示例显示一个仓库,这个仓库可以使用默认后最,且这个仓库设置了自定义后缀.
+```markdown
+<repositories base-package="com.acme.repository" />
+<repositories base-package="com.acme.repository" repository-impl-postfix="MyPostfix" />
+```
+
+17. 解决歧义
+如果找到的匹配类名称有多个实现,且在不同的包下,spring data 使用bean名称用于分辨到底使用哪个.
+给定下述两个@CustomizedUserRepository的自定义实现.第一个会被使用,其bean名称为
+@customizedUserRepositoryImpl,这个匹配了分片名称接口(CustomizedUserRepository)
+加上后缀(默认,impl)
+> 解决歧义实现
+```java
+package com.acme.impl.one;
+
+class CustomizedUserRepositoryImpl implements CustomizedUserRepository {
+
+  // Your custom implementation
+}
+```
+```java
+package com.acme.impl.two;
+
+@Component("specialCustomImpl")
+class CustomizedUserRepositoryImpl implements CustomizedUserRepository {
+
+  // Your custom implementation
+}
+```
+可以看出这两个虽然在不同的包下面,但是都满足了类名匹配的条件.第二个使用了
+`@Component("specialCustom")`注解,且bean之后添加了后缀`Impl`,所以选中了第二个.
+
++ 手动布线
+> 管理手动布线的自定义实现
+```xml
+<repositories base-package="com.acme.repository" />
+<!-- id -> 类名称-->
+<beans:bean id="userRepositoryImpl" class="…">
+  <!-- further configuration -->
+</beans:bean>
+```
+
++ 自定义基本仓库
+这个方法描述在部分区域进行,如果需要自定义基础仓库,需要每个仓库的自定义接口.这样做所有
+的仓库都会受到影响.为了对所有仓库进行修改,可以创建一个实现,这个实现基础了指定仓库的持久化
+基础类.这个类按照自定义的基本类运行,用于对仓库进行代理,示例如下:
+```java
+class MyRepositoryImpl<T, ID>
+  extends SimpleJpaRepository<T, ID> {
+
+  private final EntityManager entityManager;
+
+  MyRepositoryImpl(JpaEntityInformation entityInformation,
+                          EntityManager entityManager) {
+    super(entityInformation, entityManager);
+
+    // Keep the EntityManager around to used from the newly introduced methods.
+    this.entityManager = entityManager;
+  }
+
+  @Transactional
+  public <S extends T> S save(S entity) {
+    // implementation goes here
+  }
+}
+```
+最后一步需要使得spring data基础组件意识到自定义的仓库基础类的存在，在java配置中，可以
+通过使用`@Enable${store}Repositories`注解配置仓库基础类@repositoryBaseClass属性。
+示例如下:
+```java
+@Configuration
+@EnableJpaRepositories(repositoryBaseClass = MyRepositoryImpl.class)
+class ApplicationConfiguration { … }
+```
++ 使用XML配置
+```xml
+<repositories base-package="com.acme.repository"
+     base-class="….MyRepositoryImpl" />
+```
+
+18. Querydsl插件
+`Querydsl`可以通过API配置类型sql的查询.多个spring data 模块可以使用`Querydsl`
+整合@QuerydslPredicateExecutor,示例如下:
+```java
+public interface QuerydslPredicateExecutor<T> {
+	// 查询满足@predicate的单个实例
+    Optional<T> findById(Predicate predicate);  
+    // 返回满足所有@predicate的实例
+    Iterable<T> findAll(Predicate predicate);   
+    // 返回所有@predicate的计数值
+    long count(Predicate predicate);            
+    // 返回满足@predicate的实例是否存在
+    boolean exists(Predicate predicate);
+    // … more functionality omitted.
+}
+```
+利用`Querydsl`支持仓库接口上的`QuerydslPredicateExecutor `,示例如下:
+```java
+interface UserRepository extends CrudRepository<User, Long>, QuerydslPredicateExecutor<User> {
+}
+```
+
+19. web支持插件
