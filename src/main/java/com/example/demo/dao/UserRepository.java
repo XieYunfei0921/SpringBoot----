@@ -1,12 +1,17 @@
 package com.example.demo.dao; // 这个类的父类设置启动了非空处理,在package-info.java中
 
 import com.example.demo.entity.User;
+import org.springframework.cglib.core.Predicate;
+import org.springframework.context.annotation.Bean;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.lang.Nullable;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
-import java.awt.print.Pageable;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Future;
@@ -15,7 +20,7 @@ import java.util.stream.Stream;
 /**
  * 这个接口是@CrudRepository的派生接口,提供计数和删除功能
  */
-public interface UserRepository extends CrudRepository<User,Long> {
+public interface UserRepository extends CrudRepository<User,String> {
 
 	long countByAge(int age); // 计数函数
 
@@ -56,4 +61,8 @@ public interface UserRepository extends CrudRepository<User,Long> {
 
 	@Async
 	Future<User> findByNameAndAge(String name,int age);
+
+//	Page<User> findAll(Pageable pageable);
+//
+//	Page<User> findAll(Predicate predicate,Pageable pageable);
 }

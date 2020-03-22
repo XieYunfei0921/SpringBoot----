@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * 使用注解@RepositoryDefinition 进行仓库接口的定义
  */
-@RepositoryDefinition(domainClass = Person.class, idClass =Long.class)
+@RepositoryDefinition(domainClass = Person.class, idClass =String.class)
 public interface PersonRepository {
 	// 使用方法名称构建查询
 	List<Person> findByName(String name);
@@ -26,11 +26,11 @@ public interface PersonRepository {
 	// 使用双关键词查询
 	List<Person> findByNameAndAddressIgnoreCase(String name,String address);
 	// 使用order by查询
-	List<Person> findByNameOrderByAgeAsc(String name,int age);
+//	List<Person> findByNameOrderByAgeAsc(String name,int age);
 
-	List<Person> findByNameOrderByAddressDesc(String name,String address);
+//	List<Person> findByNameOrderByAddressDesc(String name,String address);
 	// 使用参数表达式进行查询(内部属性的嵌套)
-	List<Person> findByAddress_ZipCode(String zipCode);
+//	List<Person> findByAddress_ZipCode(String zipCode);
 
 	Page<Person> findByName(String name, Pageable pageable);
 
@@ -38,12 +38,13 @@ public interface PersonRepository {
 
 	List<Person> findByName(String name, Sort sort);
 
-	List<Person> findBy_Name(String name,Pageable pageable);
+//	List<Person> findBy_Name(String name,Pageable pageable);
 
 	Person findFirstByOrderByNameAsc();
 
 	Person findTopByOrderByAgeDesc();
 
+//	Page<Person> findAll(Pageable pageable);
 	// 查询first 10
 	Page<Person> queryFirst10ByName(String name,Pageable pageable);
 	// top3
