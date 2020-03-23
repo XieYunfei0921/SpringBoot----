@@ -1,0 +1,32 @@
+# consul 配置
+# 配置服务器端口号
+server:
+  port: 8080
+
+spring:
+  cloud:
+    consul:
+      host: localhost
+      port: 8500
+
+# 配置服务列表刷新周期
+ribbon:
+  ServerListRefreshInterval: 1000
+# 配置后端参数
+endpoints:
+  health:
+    sensitive: false
+  restart:
+    enabled: true
+  shutdown:
+    enabled: true
+# 启动安全管理
+management:
+  security:
+    enabled: true
+
+# 日志等级配置
+logging:
+  level:
+    org.springframework.cloud.consul: DEBUG
+

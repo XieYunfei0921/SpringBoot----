@@ -1,0 +1,4 @@
+# 启动参数配置
+spring:
+  application:
+    name: ConsulApplication
