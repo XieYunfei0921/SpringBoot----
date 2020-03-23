@@ -152,6 +152,10 @@ import org.springframework.context.annotation.ComponentScan;
  *  对于准备生成的特征来说,比如说健壮性`health`,监察`auditing`,REST度量,和JMX后台.考虑到添加
  * @spring-boot-actuator 可以参考特征配置的文档进行设置。
  *
+ * curl -i -H "Content-Type:application/json" -d '{"name": "Frodo", "age": 18,"address":"127.0.0.1"}' http://localhost:8080/people HTTP/1.1 201 Created
+ * curl -i -H "Content-Type:application/json" -d '{"firstName": "Frodo", "lastName": "Baggins"}' http://localhost:8080/people
+ * HTTP/1.1 201 Created
+ *
  * */
 
 
