@@ -273,8 +273,158 @@ consul目录监控利用了consul去监控服务.目录监控有一个阻塞的c
 创建类型为@TaskScheduler 的bean。
 
 13. 使用consul进行分布式配置
+consul提供一个kv存储，用于存储配置和其他元数据，spring cloud consul配置是一个配置服务器
+和客户端的可选方案。在启动项中配置加载到spring环境变量中，多个属性源@PropertySource
+的实例基于应用名称创建，且配置文件中模仿了spring cloud config解决属性的顺序。例如，名称为`testApp`
+应用,并带有`dev`的配置文件,或按照下述配置创建:
+```markdown
+config/testApp,dev/
+config/testApp/
+config/application,dev/
+config/application/
+```
+最特别的属性源在上面,使用consul去配置所有的应用.在目录`config/testApp`配置`testApp`
+服务的实例.
+这个配置是基于应用的启动,发送HTTP POST请求给`/refresh`,会导致应用的重启.**配置监听器**
+可以自动发现变化,并重载应用上下文.
 
++ 激活配置功能
+为了获取consul配置，使用组@org.springframework.cloud 和@spring-cloud-starter-consul-config
+启动。spring cloud 项目使用当前发行版构建系统。
+这个会启动自动配置，这个配置会构建spring cloud consul 配置。
 
++ 自定义
+可以进行如下的配置:
+`bootstrap.yml`
+```yml
+spring:
+  cloud:
+    consul:
+      config:
+        enabled: true # 开启/停止consul配置
+        prefix: configuration # 设置配置基础目录
+        defaultContext: apps # 设置所有应用的目录名称
+        profileSeparator: '::' ## 配置文件分割符
+```
 
++ 配置监听器
+consul配置监听器利用consul的能力,去监视key的前缀.配置监视器调用阻塞式consul HTTP API
+,用于确定是否当前应用的相关配置数据已经改变.如果出现了新的配置数据,那么就会发送一个刷新的事件.
+这个就等于是调用刷新后台执行器的功能.
+可以使用`spring.cloud.consul.config.watch.delay`配置监视器的频率,默认值为1000ms.
+这个延时是上次调用的结束到本地调用开始的时间.
+使用`spring.cloud.consul.config.watch.enabled=false`关闭配置监视器.
+监视器使用spring的任务调度器去调度consul的调用函数.默认情况下,线程池@ThreadPoolTaskScheduler
+容量为1.为了改变任务调度器@TaskScheduler,创建一个任务调度器@TaskScheduler,名称在
+@ConsulConfigAutoConfiguration.CONFIG_WATCH_TASK_SCHEDULER_NAME配置.
 
++ 使用yaml配置
+使用yaml存储格式(不使用kv对设置),可以更加方便.设置`spring.cloud.consul.config.format`
+属性为`YAML`或者`PROPERTIES`.例如:
+`bootstrap.yml`
+```yml
+spring:
+  cloud:
+    consul:
+      config:
+        format: YAML
+```
+yml文件中必须设置consul的`data`key属性.
+```markdown
+config/testApp,dev/data
+config/testApp/data
+config/application,dev/data
+config/application/data
+```
+可以在任意形式的key列表中存储yaml文件
+可以通过配置`spring.cloud.consul.config.data-key`属性来改变data key位置.
 
++ 配置git2consul
+git2consul是一个consul社区项目,可以从git仓库加载文件到consul中去.默认情况下,key的名称
+是这些文件的名称.yaml和属性@Properties 支持`.yml`和`.properties`的文件扩展.可以设置
+`spring.cloud.consul.config.format`属性.
+`bootstrap`
+```yml
+spring:
+  cloud:
+    consul:
+      config:
+        format: FILES
+```
+在`/config`中进行如下配置,`development`配置文件的名称为`foo`
+```markdown
+.gitignore
+application.yml
+bar.properties
+foo-development.properties
+foo-production.yml
+foo.properties
+master.ref
+```
+下述的属性源会被创建
+```
+config/foo-development.properties
+config/foo.properties
+config/application.yml
+```
+
+14. 快速失败
+**快速失败**在某些情况下很有用(比如说,本地开发或者指定的测试情况),如果不能获取consul就会直接失败.
+设置在启动参数中设置`spring.cloud.consul.config.failFast=false`，会配置模块记录warning
+日志而非抛出异常。这个会运行应用正常的构建。
+
+15. consul的重试
+ 如果你希望偶然失败的consul代理在你的应用启动的时候重启，可以设置是啊比的重新尝试。可以添加
+ `spring-retry`和`spring-boot-starter-aop`到类路径下。默认尝试6次，时间间隔为1000ms.
+ 可以使用`spring.cloud.consul.retry.*`配置这些参数.这个与spring consul配置和服务注册同时运行.
+ 
+16. 使用consul配置spring cloud bus(总线)
+ + 启动
+使用`org.springframework.cloud`下的`spring-cloud-starter-consul-bus`启动consul 总线.
+可以查看[spring cloud bus 文档](https://projects.spring.io/spring-cloud/spring-cloud.html#_circuit_breaker_hystrix_clients)中获取可用的监视端口和发送自定义消息.
+
+17. 配置断路器
+应用可以使用spring cloud netflix配置的断路器.通过添加指定的pom依赖,
+`spring-cloud-starter-hystrix`.断路器机构（Hystrix）不会依赖于路由发现客户端。@EnableHystrix
+注解需要使用配置类进行配置。这个方法可以使用@HystrixCommand断路器(circuit breaker)进行配置。
+可以参考相关的文档。
+
+18. 使用Turbine和consul配置断路器机构(Hystrix)度量器进行聚合
+Turbine(spring cloud netflix项目中组件),对多个断路器机构(hystrix)度量流进行合并.
+dashboard可以显示合并之后的结果,turbine使用服务客户端@DiscoveryClient 接口去查找相关实例.
+使用consul配合turbine,按照类似下述的方式配置Turbine应用.
+`pox.xml`
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-netflix-turbine</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-consul-discovery</artifactId>
+</dependency>
+```
+注意到这里的turbine依赖不是启动器,驱动器包含对Eureka的支持.
+`application.yml`
+```yml
+spring.application.name: turbine
+applications: consulhystrixclient
+turbine:
+  aggregator:
+    clusterConfig: ${applications}
+  appConfig: ${applications}
+```
+集群配置`clusterConfig`和应用配置`appConfig`必须要匹配,所以使用逗号分割的服务编号列表到各个配置属性中.
+`Turbine.java`
+```java
+@EnableTurbine
+@SpringBootApplication
+public class Turbine {
+    public static void main(String[] args) {
+        SpringApplication.run(DemoturbinecommonsApplication.class, args);
+    }
+}
+```
+
+19. 相关参数配置
+<https://cloud.spring.io/spring-cloud-static/spring-cloud-consul/2.2.2.RELEASE/reference/html/appendix.html>
