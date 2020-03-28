@@ -274,3 +274,176 @@ public class UserHandler {
     }
 }
 ```
++ spring webflux的自动配置
+spring boot提供webflux的自动配置,对大多数应用都起作用
+自动配置将添加下述特征
+    + 配置消息读取@HttpMessageReader和写出@HttpMessageWriter的压缩方式
+    + 支持静态资源,包括webjar的支持
+    + 如果需要保持webflux的特征,需要添加额外的webflux特征,可以使用`@Configuration`类型
+    的@WebFluxConfigurer 但是不要使用`@EnableWebFlux`注解
+    + 如果需要完全的控制webflux,需要使用`@EnvableWebFlux`配置你的`@Configuration`
+    
++ 配置读取和写出的压缩方式(codec)
+spring webflux使用HTTP消息读取器@HttpMessageReader和写出器@HttpMessageWriter接口转换HTTP请求
+和响应.使用@CodecConfigurer配置压缩方式,通过监视类路径的可用库
+spring boot提供专用codec的配置属性`spring.codec.*`,也提供用户的自定义`CodecCustomizer`实例.
+例如,`spring.jackson.*`配置的key会使用jackson codec.
+如果使用添加或者自定义codec,可以创建自定义`CodecCustomizer`组件,如下:
+```java
+import org.springframework.boot.web.codec.CodecCustomizer;
+
+@Configuration(proxyBeanMethods = false)
+public class MyConfiguration {
+
+    @Bean
+    public CodecCustomizer myCodecCustomizer() {
+        return codecConfigurer -> {
+            // ...
+        };
+    }
+}
+```
+
++ 静态内容
+默认情况下,spring boot服务提供目录的静态内容(/static,/public,/resources或者/META-INF).
+如果使用webflux的资源处理器@ResourceWebHandler,亦可以自己添加`WebFluxConfigurer`
+并修改.且重写方法`addResourceHandlers`.
+默认情况下,资源映射`/**`,但是可以通过设置`spring.webflux.static-path-pattern`
+属性改变。例如，重定向资源到`/resources/**`如下:
+```markdown
+spring.webflux.static-path-pattern=/resources/**
+```
+通过使用`spring.resources.static-locations`属性可以重新定义静态资源位置,用于替代默认值,
+如果这么做默认欢迎页面发现了自定义的位置,所以在每个启动的位置都有`index.html`,作为应用的主页.
+处理标准定义方式,特殊的就是webjar的定义,使用`/webjar/**`目录下的文件用于提供jar包.
+
++ 动态模板
+支持三种类型的动态模板
+    + `FreeMarker`
+    + `Thymeleaf`
+    + `Mustache`
+
++ 错误处理
+spring boot 提供web移除处理器,用于处理错误,这个位置有webflux提供的处理器提供,对于客户端来说.
+提供json响应的错误信息,http状态,和异常信息.在浏览器端,就会返回一个空白页(错误页).
+可以使用HTML模板显示这些错误.
+第一步时去自定义特征,代替错误页的信息,这种情况下,可以添加一个`ErrorAttributes`类型的bean.
+由于`WebExceptionHandler`接近于底层,所以提供`AbstractErrorWebExceptionHandler`使得可以
+方便的处理webflux函数.
+```java
+public class CustomErrorWebExceptionHandler extends AbstractErrorWebExceptionHandler {
+
+    // Define constructor here
+
+    @Override
+    protected RouterFunction<ServerResponse> getRoutingFunction(ErrorAttributes errorAttributes) {
+
+        return RouterFunctions
+                .route(aPredicate, aHandler)
+                .andRoute(anotherPredicate, anotherHandler);
+    }
+
+}
+```
+
++ 自定义错误页面
+如果需要显示指定状态的错误页面,可以添加文件到`/error`目录中.错误页面可以是静态html也可以是
+模板.名称需要是特定的错误码.
+```markdown
+src/
+ +- main/
+     +- java/
+     |   + <source code>
+     +- resources/
+         +- public/
+             +- error/
+             |   +- 404.html
+             +- <other public assets>
+```
+映射到`5xx`的错误码如下:
+```markdown
+src/
+ +- main/
+     +- java/
+     |   + <source code>
+     +- resources/
+         +- templates/
+             +- error/
+             |   +- 5xx.mustache
+             +- <other templates>
+```
+
++ web过滤器
+spring webflux提供web过滤器`@WebFilter`接口,可以过来HTTP请求,web过滤器bean会自动用于过滤.
+过滤器的顺序很重要,它们可以使用@Order注解排序,spring boot可以自动配置web过滤器的注解,如果这么做会采取下面
+的排序规则:
+
+|web过滤器|排序方式|
+|---|---|
+|`MetricWebFilter`|`Ordered.HIGHEST_PRECEDENCE+1`|
+| `WebFilterChainProxy`|`-100`|
+|`HttpTraceWebFilter`|`Ordered.LOW_PRECEDENCE-10`|
+
+3. 支持嵌入式服务容器(Servlet)
++ 服务程序,过滤器,监听器
+使用嵌入式服务容器,可以从服务程序信息获取注册服务程序,过滤器,和所有监听器`HttpSessionListener`,
+或者使用spring bean 扫描服务程序组件.
+
+> 使用spring bean注册服务程序,过滤器和监听器
+任何服务程序,过滤器或者服务程序监听器实例都是spring bean使用嵌入式容器注册出来的.这个在需要在配置中获取
+`application.properties`. 默认情况下,如果上下文中包含了单个服务程序,会映射到`/.`中,在多个服务程序的bean情况下,
+bean名称用于路径前缀,会被映射到`/*.`.如果映射足够灵活,可以使用`ServletRegistrationBean`,`FilterRegistrationBean`和
+`ServletListenerRegistrationBean`注解用于完全控制.
+使过滤器处于未排序的方式通常是安全的，如果需要指定的排序，需要使用`@Order`注解,保证实现排序功能,
+不能通过添加`@Order`配置过滤器的注解.
+必须顶一个`FilterRegistrationBean`,且设置设置注册bean的排序(使用`setOrder(int)`方法).
+避免配置读取`Ordered.HIGHEST_PRECEDENCE`的过滤器,因为可能使得应用的字符编码混乱.如果服务程序过滤器包裹了请求,
+需要按照顺序配置,且order需要小于等于`OrderedFilter.REQUEST_WRAPPER_FILTER_MAX_ORDER`.
+
+> web服务器应用服务上下文
+spring boot使用不同的应用上下文，用于对嵌入式服务容器的支持。web服务器服务应用上下文时web应用上下文是一个特殊的
+类型。通过搜索单个`ServletWebServerFactory`的bean进行启动.通常会使用Tomcat或者Jetty的,或者是Undertow的web
+服务工厂.
+
++ 自定义嵌入式服务容器
+普通的服务程序容器设置可以使用spring环境变量配置.通常,可以在`application.properties`中配置属性.
+配置包括:
+    + 网络配置: HTTP请求的监听端口
+    + 会话设置: 是否session是持续的`server.servlet.session.persistent`
+        会话超时时间`server.servlet.session.timeout`,
+        会话数据的位置`server.servlet.session.store-dir`
+        会话cookie的配置: `server.servlet.session.cookie.*`
+    + 错误管理: 错误页面的位置`server.error.path`
+    + SSL
+    + HTTP压缩信息
+    
++ 自定义ConfigurableServletWebServerFactory
+如果觉得上述配置的功能较少，可以自定义`TomcatServletWebServerFactory`,`JettyServletWebServerFactory`
+或者`UndertowServletWebServerFactory`
+```markdown
+@Bean
+public ConfigurableServletWebServerFactory webServerFactory() {
+    TomcatServletWebServerFactory factory = new TomcatServletWebServerFactory();
+    factory.setPort(9000);
+    factory.setSessionTimeout(10, TimeUnit.MINUTES);
+    factory.addErrorPages(new ErrorPage(HttpStatus.NOT_FOUND, "/notfound.html"));
+    return factory;
+}
+```
+
+4. 嵌入式响应服务器的支持
+spring boot包括线束响应式web服务的支持:
++ reactor netty
++ tomcat
++ jetty
++ undertow
+大多数开发者使用`Starter`获取配置好的实例.默认情况下,嵌入书服务器监听8080端口.
+
+5. 响应式服务器资源配置
+自动配置的reactor netty 或者jetty的时候,spring boot会创建爱你指定的bean,用于提供HTTP资源.
+分别是`ReactorResourceFactory`或者`JettyResourceFactory`
+默认情况下,这些资源会被Reactor Netty和Jetty客户端共享.
++ 客户端和服务端使用相同的技术
++ 客户端实例使用web客户端构建,构建器可以使用spring boot自动构建
+开发者可以使用jetty和reactor netty重新资源配置,通过提供自定义的`ReactorResourceFactory`或者
+`JettyResourceFactory`的bean.这个bean会使用在客户端和服务端.
