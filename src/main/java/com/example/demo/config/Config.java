@@ -4,6 +4,7 @@ import com.example.demo.config.DataSourceAutoConfiguration;
 import com.example.demo.dao.MyRepositoryImpl;
 import com.example.demo.dao.UserRepository;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.web.codec.CodecCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
@@ -28,4 +29,10 @@ public class Config {
 //		System.out.println("enable manager factory");
 //		return null;
 //	}
+
+	public CodecCustomizer myCodec(){
+		return codeConfigurer -> {
+			// 自定义
+		};
+	}
 }
