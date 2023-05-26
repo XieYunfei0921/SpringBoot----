@@ -85,7 +85,7 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-autoconfigure</artifactId>
-            <version>2.2.4.RELEASE</version>
+            <version>2.5.15</version>
         </dependency>
         <!--开发常用的工具包 其中
         org.springframework.boot.devtools.RemoteSpringApplication 属于这个包
